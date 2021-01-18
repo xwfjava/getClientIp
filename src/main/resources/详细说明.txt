@@ -1,0 +1,46 @@
+1、没有配置nginx代理
+直接代码中调用HttpServletRequest的getRemoteAddr()方法获取客户端请求的真实ip
+
+@GetMapping("/getIp")
+    public String getIp(HttpServletRequest request){
+        return request.getRemoteAddr();
+    }
+
+2、配置nginx获取客户端请求真实ip
+nginx中的配置；加上
+（ proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for）或者
+（ proxy_set_header X-Forwarded-For $http_x_forwarded_for）
+例如：
+
+location /TEST {
+     uwsgi_param X-Real-IP $remote_addr;
+#	    proxy_set_header X-Forwarded-For $http_x_forwarded_for;
+	    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_pass   http://localhost:8080/;
+ }
+
+$remote_addr：如果只有一层nginx代理服务这个是客户端真实ip，如果有很多层nginx代理服务这个是本层的上一层nginx代理服务的IP地址
+$proxy_add_x_forwarded_for:这是一个拼接的字符串，第一个总是客户端的真实ip（如果存在多层nginx代理转发它的格式就是：客户端ip,转发1ip,转发2ip,…）
+$http_x_forwarded_for：客户端真实ip
+
+如果只有一层转发这三个个是一样的
+
+（如果是路由器分发的内网的话获取的是内网的ip，如果想获取外网ip可以请求https://xaxaxax.xyz/TEST/getIp 这个地址是我自己搭的也可以访问淘宝的）;
+
+java代码中：获取客户端真实ip，获取请求头中X-Forwarded-For
+1):通过@RequestHeader注解获取ip
+
+@GetMapping("/getIp")
+public String getIp(@RequestHeader("X-Forwarded-For") String ip){
+    return ip;
+}
+
+2):通过HttpServletRequest 获取ip
+
+@GetMapping("/getIp")
+public String getIp(HttpServletRequest request){
+    return request.getHeader("X-Forwarded-For");
+}
+
+经过很多测试 $http_x_forwarded_for 可能存在失效情况 ，
+所以推荐 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
